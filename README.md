@@ -21,7 +21,7 @@ Rust 缓存清理工具是一款用于管理和清理 Rust 开发环境缓存的
 
 ## 技术架构
 
-### 技术栈
+### 技术栈 aaaaaaaaaaaaaaaa
 
 - **前端**：Vue 3 + TypeScript + Vite
 - **后端**：Rust + Tauri 2.0
