@@ -8,7 +8,12 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:build": "set CARGO_BUILD_JOBS=8&& tauri build && node -e \"require('fs').copyFileSync('src-tauri/target/release/rust-cache-cleaner.exe', '../rust-cache-cleaner.exe')\""
+    "tauri:build": "set CARGO_BUILD_JOBS=8&& tauri build && node -e \"require('fs').copyFileSync('src-tauri/target/release/rust-cache-cleaner.exe', '../rust-cache-cleaner.exe')\"",
+    "test:backend": "cd src-tauri && cargo test",
+    "test:frontend": "vue-tsc --noEmit",
+    "test": "npm run test:frontend && npm run test:backend",
+    "lint": "cd src-tauri && cargo clippy",
+    "fmt": "cd src-tauri && cargo fmt && prettier --write src/"
   },
   "dependencies": {
     "vue": "^3.5.13",
@@ -20,6 +25,7 @@
     "typescript": "~5.6.2",
     "vite": "^6.0.3",
     "vue-tsc": "^2.1.10",
-    "@tauri-apps/cli": "^2"
+    "@tauri-apps/cli": "^2",
+    "prettier": "^3.0.0"
   }
 }

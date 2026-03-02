@@ -3,6 +3,9 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+
+#[cfg(unix)]
+use rayon::prelude::*;
 use walkdir::WalkDir;
 
 static PROTECTED_KEYWORDS: Lazy<Vec<&'static str>> = Lazy::new(|| {
@@ -40,6 +43,53 @@ static EXECUTABLE_CANDIDATES: Lazy<Vec<&'static str>> = Lazy::new(|| {
         "powershell.exe",
     ]
 });
+
+pub mod utils {
+    use super::*;
+
+    pub fn calculate_dir_size(dir: &Path) -> u64 {
+        WalkDir::new(dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter_map(|e| e.metadata().ok())
+            .filter(|m| m.is_file())
+            .map(|m| m.len())
+            .sum()
+    }
+
+    pub fn is_protected_path(path: &Path) -> bool {
+        let s = path.to_string_lossy().to_lowercase();
+
+        if let Some(_home) = dirs::home_dir() {
+            if s.contains(".cargo") || s.contains(".rustup") {
+                if s.contains(".cargo/bin") || s.contains("\\bin\\") || s.contains("/bin/") {
+                    return true;
+                }
+                return false;
+            }
+
+            if s.contains("node_modules") {
+                return true;
+            }
+        }
+
+        for k in PROTECTED_KEYWORDS.iter() {
+            if s.contains(k) {
+                return true;
+            }
+        }
+
+        if path.is_dir() {
+            for c in EXECUTABLE_CANDIDATES.iter() {
+                if path.join(c).exists() {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheItem {
@@ -105,14 +155,7 @@ fn format_size(size: u64) -> String {
 }
 
 fn calculate_dir_size(dir: &Path) -> u64 {
-    use walkdir::WalkDir;
-    WalkDir::new(dir)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter_map(|e| e.metadata().ok())
-        .filter(|m| m.is_file())
-        .map(|m| m.len())
-        .sum()
+    utils::calculate_dir_size(dir)
 }
 
 fn scan_directory(
@@ -219,36 +262,7 @@ mod commands {
     }
 
     fn is_protected_path(path: &Path) -> bool {
-        let s = path.to_string_lossy().to_lowercase();
-
-        if let Some(_home) = dirs::home_dir() {
-            if s.contains(".cargo") || s.contains(".rustup") {
-                if s.contains(".cargo/bin") || s.contains("\\bin\\") || s.contains("/bin/") {
-                    return true;
-                }
-                return false;
-            }
-
-            if s.contains("node_modules") {
-                return true;
-            }
-        }
-
-        for k in PROTECTED_KEYWORDS.iter() {
-            if s.contains(k) {
-                return true;
-            }
-        }
-
-        if path.is_dir() {
-            for c in EXECUTABLE_CANDIDATES.iter() {
-                if path.join(c).exists() {
-                    return true;
-                }
-            }
-        }
-
-        false
+        utils::is_protected_path(path)
     }
 
     #[tauri::command]
