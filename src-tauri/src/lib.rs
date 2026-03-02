@@ -138,7 +138,7 @@ pub struct SystemInfo {
     pub cargo_version: String,
 }
 
-fn format_size(size: u64) -> String {
+pub fn format_size(size: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = KB * 1024;
     const GB: u64 = MB * 1024;
@@ -551,11 +551,6 @@ mod commands {
     }
 
     #[tauri::command]
-    pub fn format_size_command(size: u64) -> String {
-        format_size(size)
-    }
-
-    #[tauri::command]
     pub fn get_system_info() -> SystemInfo {
         let mut sys = sysinfo::System::new_all();
         sys.refresh_all();
@@ -597,6 +592,11 @@ mod commands {
             rust_version,
             cargo_version,
         }
+    }
+
+    #[tauri::command]
+    pub fn format_size_command(size: u64) -> String {
+        crate::format_size(size)
     }
 }
 

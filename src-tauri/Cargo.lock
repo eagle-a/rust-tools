@@ -3023,12 +3023,14 @@ dependencies = [
  "chrono",
  "dirs 5.0.1",
  "once_cell",
+ "rayon",
  "serde",
  "serde_json",
  "sysinfo",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
+ "tempfile",
  "walkdir",
 ]
 
