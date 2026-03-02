@@ -1,7 +1,45 @@
 use chrono::{DateTime, Local};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
+
+static PROTECTED_KEYWORDS: Lazy<Vec<&'static str>> = Lazy::new(|| {
+    vec![
+        "\\python",
+        "/python",
+        "python.exe",
+        "python3",
+        "node.exe",
+        "\"node\"",
+        "java.exe",
+        "java",
+        "dotnet",
+        "pwsh",
+        "powershell",
+        "ruby",
+        "go",
+        "windows",
+        "program files",
+        "system32",
+    ]
+});
+
+static EXECUTABLE_CANDIDATES: Lazy<Vec<&'static str>> = Lazy::new(|| {
+    vec![
+        "python.exe",
+        "python",
+        "node.exe",
+        "node",
+        "java.exe",
+        "java",
+        "dotnet.exe",
+        "dotnet",
+        "pwsh.exe",
+        "powershell.exe",
+    ]
+});
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheItem {
@@ -67,20 +105,14 @@ fn format_size(size: u64) -> String {
 }
 
 fn calculate_dir_size(dir: &Path) -> u64 {
-    let mut total_size = 0u64;
-    if let Ok(entries) = fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if let Ok(metadata) = fs::metadata(&path) {
-                if metadata.is_dir() {
-                    total_size += calculate_dir_size(&path);
-                } else {
-                    total_size += metadata.len();
-                }
-            }
-        }
-    }
-    total_size
+    use walkdir::WalkDir;
+    WalkDir::new(dir)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter_map(|e| e.metadata().ok())
+        .filter(|m| m.is_file())
+        .map(|m| m.len())
+        .sum()
 }
 
 fn scan_directory(
@@ -186,73 +218,30 @@ mod commands {
         }
     }
 
-    // 判断路径是否为受保护路径（例如解释器、运行时等）
     fn is_protected_path(path: &Path) -> bool {
         let s = path.to_string_lossy().to_lowercase();
 
-        // 保护用户主目录下的重要目录，但不能是 cargo/rustup 自己的缓存
-        if let Some(home) = dirs::home_dir() {
-            let _home_str = home.to_string_lossy().to_lowercase();
-
-            // 允许删除 cargo/rustup 的缓存目录
+        if let Some(_home) = dirs::home_dir() {
             if s.contains(".cargo") || s.contains(".rustup") {
-                // 但保护其中的重要内容
-                // 不保护具体的 toolchain 目录（让用户可以选择删除）
-                // 只保护 cargo/bin 等可执行目录
                 if s.contains(".cargo/bin") || s.contains("\\bin\\") || s.contains("/bin/") {
                     return true;
                 }
-                return false; // 允许删除缓存
+                return false;
             }
 
-            // 保护其他用户目录下的重要内容
             if s.contains("node_modules") {
                 return true;
             }
         }
 
-        // 关键字检查（包含目录名或可执行文件名）
-        let protected_keywords = [
-            "\\python",
-            "/python",
-            "python.exe",
-            "python3",
-            "node.exe",
-            "\"node\"",
-            "java.exe",
-            "java",
-            "dotnet",
-            "pwsh",
-            "powershell",
-            "ruby",
-            "go",
-            // Windows 系统关键目录
-            "windows",
-            "program files",
-            "system32",
-        ];
-
-        for k in &protected_keywords {
+        for k in PROTECTED_KEYWORDS.iter() {
             if s.contains(k) {
                 return true;
             }
         }
 
-        // 如果是目录，检查目录下是否存在典型的解释器可执行文件
         if path.is_dir() {
-            let candidates = [
-                "python.exe",
-                "python",
-                "node.exe",
-                "node",
-                "java.exe",
-                "java",
-                "dotnet.exe",
-                "dotnet",
-                "pwsh.exe",
-                "powershell.exe",
-            ];
-            for c in &candidates {
+            for c in EXECUTABLE_CANDIDATES.iter() {
                 if path.join(c).exists() {
                     return true;
                 }
